@@ -1,6 +1,9 @@
 import IPython
 import warnings
 
+# These are actually used for the application
+import collections
+
 from golix import Ghid
 from hypergolix.service import HypergolixLink
 
@@ -11,8 +14,13 @@ razpi = Ghid(algo=1, address=b'D\xe90\x1bpr\xd3\xed\xdd\xac-,\xa9{i\xca{[\xa8\x9
 # Declare api
 request_api = bytes(64) + b'\x01'
 
+# Store objects
+incoming_requests = collections.deque(maxlen=10)
+def request_handler(obj):
+    incoming_requests.appendleft(obj)
+
 # register api
-hgxlink.register_api(request_api, object_handler=print)
+hgxlink.register_api(request_api, object_handler=request_handler)
 
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
