@@ -3,6 +3,7 @@ import warnings
 
 # These are actually used for the application
 import collections
+import time
 
 from golix import Ghid
 from hypergolix.service import HypergolixLink
@@ -14,6 +15,31 @@ razpi = Ghid(algo=1, address=b'D\xe90\x1bpr\xd3\xed\xdd\xac-,\xa9{i\xca{[\xa8\x9
 # Declare api
 request_api = bytes(64) + b'\x01'
 response_api = bytes(64) + b'\x02'
+
+# Etc
+timer = collections.deque([0,0], maxlen=2)
+recipients = { razpi, desktop } - { hgxlink.whoami }
+
+def make_request(msg):
+    obj = hgxlink.new_object(
+        state = msg,
+        dynamic = True,
+        api_id = request_api
+    )
+    
+    for recipient in recipients:
+        obj.share(recipient)
+        
+    return obj
+    
+def timed_update(obj, msg):
+    timer.appendleft(time.monotonic())
+    obj.update(msg)
+    
+def timed_update_callback(obj):
+    timer.appendleft(time.monotonic())
+    elapsed = timer[0] - timer[1]
+    print('Update mirrored in', elapsed, 'seconds.')
 
 # Store objects
 incoming_requests = collections.deque(maxlen=10)
@@ -30,7 +56,13 @@ def request_handler(obj):
     reply.share(recipient=obj.author)
     outgoing_responses.appendleft(reply)
     
+    def state_mirror(source_obj):
+        reply.update(source_obj.state)
+    
+    obj.add_callback(state_mirror)
+    
 def response_handler(obj):
+    obj.add_callback(timed_update_callback)
     incoming_responses.appendleft(obj)
 
 # register api
