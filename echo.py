@@ -13,14 +13,29 @@ razpi = Ghid(algo=1, address=b'D\xe90\x1bpr\xd3\xed\xdd\xac-,\xa9{i\xca{[\xa8\x9
 
 # Declare api
 request_api = bytes(64) + b'\x01'
+response_api = bytes(64) + b'\x02'
 
 # Store objects
 incoming_requests = collections.deque(maxlen=10)
+incoming_responses = collections.deque(maxlen=10)
+outgoing_responses = collections.deque(maxlen=10)
+
 def request_handler(obj):
     incoming_requests.appendleft(obj)
+    reply = hgxlink.new_object(
+        state = obj.state,
+        dynamic = True,
+        api_id = response_api
+    )
+    reply.share(recipient=obj.author)
+    outgoing_responses.appendleft(reply)
+    
+def response_handler(obj):
+    incoming_responses.appendleft(obj)
 
 # register api
 hgxlink.register_api(request_api, object_handler=request_handler)
+hgxlink.register_api(response_api, object_handler=response_handler)
 
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
