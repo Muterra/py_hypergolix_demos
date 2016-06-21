@@ -65,9 +65,9 @@ desktop = Ghid(algo=1, address=b'\x14` \xcb\xbbW\x1f*UL\xe4-\xb2\xcc\x16\xee\x03
 # Create update a timing object
 timer = collections.deque([0,0], maxlen=2)
 
+recipients = {razpi, desktop} - {hgxlink.whoami}
 # Automate creating requests
 def make_request(msg):
-    recipients = {razpi, desktop} - {hgxlink.whoami}
     obj = hgxlink.new_object(
         state = msg,
         dynamic = True,

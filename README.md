@@ -26,6 +26,7 @@ Note: these needs are specific to external contributors. Internal development pr
 
 + Contribution guide
 + Code of conduct
++ Fix code in written echo-101 demo to match the demo video
 
 See also:
 
