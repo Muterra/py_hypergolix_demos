@@ -44,7 +44,8 @@ from hypergolix.service import HypergolixLink
 
 
 # Link to hypergolix service
-hgxlink = HypergolixLink(threaded=True)
+hgxlink = HypergolixLink()
+hgxlink.new_token_threadsafe()
 
 # Declare API
 request_api = bytes(64) + b'\x01'
@@ -58,14 +59,14 @@ responses_outgoing = collections.deque(maxlen=10)
 
 
 # Identity addresses
-razpi = Ghid(algo=1, address=b'\x01\xa0\xdc\xbc\xd45\x17|JF\x01s\xf6f\xdb\xe65O,\x82v\xc7\xea&|\xd1,\xecZ\xd3vp\x82\xca\xd5ko7\x84\xa8-\x1a\xd1\x15j\x04\xb4\xa7\x0e\x92\xe9\xa2\xe2\xc8\x80\xa6J\xb59\x8f\xda:@\xfb')
-desktop = Ghid(algo=1, address=b'\x14` \xcb\xbbW\x1f*UL\xe4-\xb2\xcc\x16\xee\x03\xca\x0e\xde\x81hp\xe5@\xf2D\xcf_\xb6\xf7\x87\xa25\xc4\x04L\xf8\xd2O\xaa\x95\xa2\x991\xf3(H\xbf\x9bGu\xbbs\xc9xkW\x98\xa3\x02\xed2\xa1')
+razpi = Ghid(algo=1, address=b'\t\xa5\x92\xfd\xc8V#5W\x82e>c~\x1fx\x0b\xd6\xcd\xd1$\n\xbe\x82\xe0\x08SS\xe1\xb8\xf8\xc9\xe0\xef\x13\x0bc\x8d\x18\xaf\x1a4\x10\x97\xfe\x96\xb8\x7f\x05\xc7Q\xd3\x81\x14H\xa7$sc$m\x0bzE')
+desktop = Ghid(algo=1, address=b'T@\xfb\xbe\xc0\xf5\n\xac\x86\xdap\xc4I+\xc3\xc52]\xeb\xbe\xea\xfdAwY\xcb\xecH3\xa49\x19\xdd-Q\xe5\nt\x05\xbdP\xf7\xe5C\xac\r\n\xb7\xe7\xb4*6\x1d\xd9h\xeb\xcb\x0f2\x0e\x01,\xd4\xdd')
 
     
 # Create update a timing object
 timer = collections.deque([0,0], maxlen=2)
 
-recipients = {razpi, desktop} - {hgxlink.whoami}
+recipients = {razpi, desktop} - {hgxlink.whoami_threadsafe()}
 # Automate creating requests
 def make_request(msg):
     obj = hgxlink.new_object(
@@ -109,8 +110,8 @@ def response_handler(obj):
 
 
 # Register APIs
-hgxlink.register_api(request_api, request_handler)
-hgxlink.register_api(response_api, response_handler)
+hgxlink.register_api_threadsafe(request_api, request_handler)
+hgxlink.register_api_threadsafe(response_api, response_handler)
 
 
 # Start an interactive IPython interpreter with local namespace, but

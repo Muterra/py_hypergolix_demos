@@ -38,7 +38,7 @@ from golix import Ghid
 from hypergolix.service import HypergolixLink
 
 
-hgxlink = HypergolixLink(threaded=True)
+hgxlink = HypergolixLink()
 
 
 # Start an interactive IPython interpreter with local namespace, but
@@ -52,6 +52,7 @@ with warnings.catch_warnings():
 # This bit happens within ipython.
 ########################################################################
     
+# hgxlink.new_token_threadsafe()
 
 # obj = hgxlink.new_object(
 #     state = b'Hello hypergolix!',
@@ -63,7 +64,7 @@ with warnings.catch_warnings():
 # obj.update(b'Wubbalubbadubdub')
 
 # dummy_api = bytes(64) + b'\x07'
-# hgxlink.register_api(dummy_api, print)
+# hgxlink.register_api_threadsafe(dummy_api, print)
 
 # obj = hgxlink.new_object(
 #     state = b'Hello hypergolix!',
@@ -72,5 +73,4 @@ with warnings.catch_warnings():
 # )
     
 # import pyperclip
-# hgxlink.whoami
-# pyperclip.copy(repr(hgxlink.whoami))
+# pyperclip.copy(repr(hgxlink.whoami_threadsafe()))
