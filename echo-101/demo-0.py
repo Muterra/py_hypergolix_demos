@@ -52,25 +52,25 @@ with warnings.catch_warnings():
 # This bit happens within ipython.
 ########################################################################
     
-# hgxlink.new_token_threadsafe()
+hgxlink.new_token_threadsafe()
 
-# obj = hgxlink.new_object(
-#     state = b'Hello hypergolix!',
-#     private = True,
-#     dynamic = True
-# )
+obj = hgxlink.new_obj_threadsafe(
+    state = b'Hello hypergolix!',
+    private = True,
+    dynamic = True
+)
 
-# obj.update(b'A fine day for a ride in the Scottish countryside!')
-# obj.update(b'Wubbalubbadubdub')
+obj.update_threadsafe(b'A fine day for a ride in the Scottish countryside!')
+obj.update_threadsafe(b'Wubbalubbadubdub')
 
-# dummy_api = bytes(64) + b'\x07'
-# hgxlink.register_api_threadsafe(dummy_api, print)
+dummy_api = bytes(64) + b'\x07'
+hgxlink.register_api_threadsafe(dummy_api, print)
 
-# obj = hgxlink.new_object(
-#     state = b'Hello hypergolix!',
-#     api_id = dummy_api,
-#     dynamic = True
-# )
+obj = hgxlink.new_obj_threadsafe(
+    state = b'Hello hypergolix!',
+    api_id = dummy_api,
+    dynamic = True
+)
     
-# import pyperclip
-# pyperclip.copy(repr(hgxlink.whoami_threadsafe()))
+import pyperclip
+pyperclip.copy(repr(hgxlink.whoami_threadsafe()))

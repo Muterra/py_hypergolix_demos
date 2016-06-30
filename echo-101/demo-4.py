@@ -59,8 +59,8 @@ responses_outgoing = collections.deque(maxlen=10)
 
 
 # Identity addresses
-razpi = Ghid(algo=1, address=b'\t\xa5\x92\xfd\xc8V#5W\x82e>c~\x1fx\x0b\xd6\xcd\xd1$\n\xbe\x82\xe0\x08SS\xe1\xb8\xf8\xc9\xe0\xef\x13\x0bc\x8d\x18\xaf\x1a4\x10\x97\xfe\x96\xb8\x7f\x05\xc7Q\xd3\x81\x14H\xa7$sc$m\x0bzE')
-desktop = Ghid(algo=1, address=b'T@\xfb\xbe\xc0\xf5\n\xac\x86\xdap\xc4I+\xc3\xc52]\xeb\xbe\xea\xfdAwY\xcb\xecH3\xa49\x19\xdd-Q\xe5\nt\x05\xbdP\xf7\xe5C\xac\r\n\xb7\xe7\xb4*6\x1d\xd9h\xeb\xcb\x0f2\x0e\x01,\xd4\xdd')
+razpi = Ghid(algo=1, address=b'"\x7f\x0bP\x85\x84\x13\xacv\x1f4\x0b\x1e\xad\x01n?\x8f\x9b\r\\\xe3\x1f$\x8b9;\xb6x\xe8\xb4\xd6{1\x01T=\xa7gp\x01u\xda~M\x1a\xa9\x95\x82\xc0\xde\xd8\x85#\xd51\xf2\xcf\xe6\xb2{\xbe\xfe\x13')
+desktop = Ghid(algo=1, address=b'V\x9b\x87\xc3\xd8\xe2\xca\r\xd7\x9fa:,A\x0f\xddo\x05*\xc9\xd4 \xe9X\xcb\xff`\xd2\xd5\x16Q\xff^\r`\xa8\xf2\x1d\xbe)Yw\xf1\xb5\xbd\xd9\xb4_`2g\xe5\x0b\x7fr\xc0\xe6#\xfa\xb9\x15K\x1cY')
 
     
 # Create update a timing object
@@ -69,19 +69,19 @@ timer = collections.deque([0,0], maxlen=2)
 recipients = {razpi, desktop} - {hgxlink.whoami_threadsafe()}
 # Automate creating requests
 def make_request(msg):
-    obj = hgxlink.new_object(
+    obj = hgxlink.new_obj_threadsafe(
         state = msg,
         dynamic = True,
         api_id = request_api
     )
     for recipient in recipients:
-        obj.share(recipient)
+        obj.share_threadsafe(recipient)
     return obj
     
 # Time update reflection
 def timed_update(obj, msg):
     timer.appendleft(time.monotonic())
-    obj.update(msg)
+    obj.update_threadsafe(msg)
     
 def timed_update_callback(obj):
     timer.appendleft(time.monotonic())
@@ -91,21 +91,21 @@ def timed_update_callback(obj):
 # Callback for incoming requests
 def request_handler(obj):
     requests_incoming.appendleft(obj)
-    reply = hgxlink.new_object(
+    reply = hgxlink.new_obj_threadsafe(
         state = obj.state,
         dynamic = True,
         api_id = response_api
     )
-    reply.share(recipient=obj.author)
+    reply.share_threadsafe(recipient=obj.author)
     responses_outgoing.appendleft(reply)
     
     def state_mirror(source_obj):
-        reply.update(source_obj.state)
-    obj.add_callback(state_mirror)
+        reply.update_threadsafe(source_obj.state)
+    obj.append_threadsafe_callback(state_mirror)
     
 # Callback for incoming responses
 def response_handler(obj):
-    obj.add_callback(timed_update_callback)
+    obj.append_threadsafe_callback(timed_update_callback)
     responses_incoming.appendleft(obj)
 
 
