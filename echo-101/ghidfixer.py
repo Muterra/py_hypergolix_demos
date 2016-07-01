@@ -63,7 +63,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--ipc_port_1', 
         action = 'store',
-        default = 7770, 
+        default = 7772, 
         type = int,
         help = 'Specify the first ("desktop") IPC port [default: 7770]'
     )

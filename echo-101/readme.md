@@ -8,7 +8,7 @@ Duration: video is about 10 minutes. Your timing may vary!
 
 #### Included source files:
 
-**Note that these will require adjustment of the ```razpi``` and ```desktop``` variables to run.** The included ghidfixer tool will automatically update demo-0 through demo-4 as appropriate, assuming you have two *local* Hypergolix services running using ipc_ports 7770 and 7771.
+**Note that these will require adjustment of the ```razpi``` and ```desktop``` variables to run.** The included ghidfixer tool will automatically update demo-0 through demo-4 as appropriate, assuming you have two *local* Hypergolix services running using ipc_ports 7772 and 7771.
 
 + [demo-server.py](/echo-101/demo-server.py): A persistence server.
 + [demo-0.py](/echo-101/demo-0.py): First steps.
