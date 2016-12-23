@@ -3,6 +3,7 @@ import time
 import datetime
 import psutil
 import collections
+import daemoniker
 import hypergolix as hgx
 
 
@@ -86,6 +87,8 @@ class Telemeter:
         self.status = None
         self.paired_fingerprint = None
         
+        self.running = True
+        
     def app_init(self):
         ''' Set up the application.
         '''
@@ -108,7 +111,7 @@ class Telemeter:
     def app_run(self):
         ''' Do the main application loop.
         '''
-        while True:
+        while self.running:
             timestamp = datetime.datetime.now()
             timestr = timestamp.strftime('%Y.%M.%d @ %H:%M:%S\n==========\n')
             cpustr = format_cpu(psutil.cpu_percent(interval=.1, percpu=True))
@@ -125,6 +128,10 @@ class Telemeter:
             # Make sure we clamp this to non-negative values, in case the
             # update took longer than the current interval.
             time.sleep(max(self.interval - elapsed, 0))
+            
+    def signal_handler(self, signum):
+        self.running = False
+        self.hgxlink.stop_threadsafe()
         
     def pair_handler(self, ghid, origin, api_id):
         ''' Pair handlers ignore the object itself, instead setting up
@@ -279,8 +286,21 @@ if __name__ == "__main__":
         help = 'Set the Telemeter recording interval from the Telereader. ' +
                'Ignored by a Telemeter.'
     )
+    argparser.add_argument(
+        '--pidfile',
+        action = 'store',
+        default = 'telemeter.pid',
+        type = str,
+        help = 'Set the name for the PID file for the Telemeter daemon.'
+    )
+    argparser.add_argument(
+        '--stop',
+        action = 'store_true',
+        help = 'Stop an existing Telemeter daemon.'
+    )
     args = argparser.parse_args()
     
+    # This is the READER
     if args.telereader is not None:
         telemeter_fingerprint = hgx.Ghid.from_str(args.telereader)
         app = Telereader(telemeter_fingerprint)
@@ -295,11 +315,36 @@ if __name__ == "__main__":
             
         finally:
             app.hgxlink.stop_threadsafe()
+    
+    # This is the SENDER, but we're stopping it.
+    elif args.stop:
+        daemoniker.send(args.pidfile, daemoniker.SIGTERM)
         
+    # This is the SENDER, and we're starting it.
     else:
+        # We need to actually daemonize the app so that it persists without
+        # an SSH connection
+        with daemoniker.Daemonizer() as (is_setup, daemonizer):
+            is_parent, pidfile = daemonizer(
+                args.pidfile,
+                args.pidfile,
+                strip_cmd_args = False
+            )
+            
+            # Parent exits here
+        
+        # Just the child from here
         app = Telemeter(interval=5)
             
         try:
+            sighandler = daemoniker.SignalHandler1(
+                pidfile,
+                sigint = app.signal_handler,
+                sigterm = app.signal_handler,
+                sigabrt = app.signal_handler
+            )
+            sighandler.start()
+            
             app.app_init()
             app.app_run()
             
