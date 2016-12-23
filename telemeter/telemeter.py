@@ -1,6 +1,8 @@
 import argparse
 import time
 import datetime
+import psutil
+import collections
 import hypergolix as hgx
 
 
@@ -29,6 +31,46 @@ INTERVAL_API = hgx.utils.ApiID(
     b'\x0e\n\x19\x0b\x14\r\n\x04\x0c\x06\x03\x13\x01' +
     b'\x01\x12\x05'
 )
+
+
+def humanize_bibytes(n, prefixes=collections.OrderedDict((
+                    (0, 'B'),
+                    (1024, 'KiB'),
+                    (1048576, 'MiB'),
+                    (1073741824, 'GiB'),
+                    (1099511627776, 'TiB'),
+                    (1125899906842624, 'PiB'),
+                    (1152921504606846976, 'EiB'),
+                    (1180591620717411303424, 'ZiB'),
+                    (1208925819614629174706176, 'YiB')))):
+    ''' Convert big numbers into easily-human-readable ones.
+    '''
+    for value, prefix in reversed(prefixes.items()):
+        if n >= value:
+            return '{:.2f} {}'.format(float(n) / value, prefix)
+            
+            
+def format_cpu(cpu_list):
+    cpustr = 'CPU:\n----------\n'
+    for cpu in cpu_list:
+        cpustr += '  ' + str(cpu) + '%\n'
+    return cpustr
+    
+    
+def format_mem(mem_tup):
+    memstr = 'MEM:\n----------\n'
+    memstr += '  Avail: ' + humanize_bibytes(mem_tup.available) + '\n'
+    memstr += '  Total: ' + humanize_bibytes(mem_tup.total) + '\n'
+    memstr += '  Used:  ' + str(mem_tup.percent) + '%\n'
+    return memstr
+    
+    
+def format_disk(disk_tup):
+    diskstr = 'DISK:\n----------\n'
+    diskstr += '  Avail: ' + humanize_bibytes(disk_tup.free) + '\n'
+    diskstr += '  Total: ' + humanize_bibytes(disk_tup.total) + '\n'
+    diskstr += '  Used:  ' + str(disk_tup.percent) + '%\n'
+    return diskstr
 
 
 class Telemeter:
@@ -68,13 +110,18 @@ class Telemeter:
         '''
         while True:
             timestamp = datetime.datetime.now()
-            timestr = timestamp.strftime('%Y.%M.%d @ %H:%M:%S')
+            timestr = timestamp.strftime('%Y.%M.%d @ %H:%M:%S\n==========\n')
+            cpustr = format_cpu(psutil.cpu_percent(interval=.1, percpu=True))
+            memstr = format_mem(psutil.virtual_memory())
+            diskstr = format_disk(psutil.disk_usage('/'))
             
-            self.status.state = timestr
+            status = (timestr + cpustr + memstr + diskstr + '\n')
+            
+            self.status.state = status
             self.status.push_threadsafe()
             
             elapsed = (datetime.datetime.now() - timestamp).total_seconds()
-            print('Logged {0} in {1:.3f} seconds.'.format(timestr, elapsed))
+            print('Logged in {:.3f} seconds:\n{}'.format(elapsed, status))
             # Make sure we clamp this to non-negative values, in case the
             # update took longer than the current interval.
             time.sleep(max(self.interval - elapsed, 0))
