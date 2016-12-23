@@ -12,12 +12,12 @@ class Telemeter:
         self.interval = interval
         
         # These are the actual Hypergolix business parts
-        self.status_reporter = None
+        self.status = None
         
     def app_init(self):
         ''' Set up the application.
         '''
-        self.status_reporter = self.hgxlink.new_threadsafe(
+        self.status = self.hgxlink.new_threadsafe(
             cls = hgx.JsonObj,
             state = 'Hello world!'
         )
@@ -26,11 +26,15 @@ class Telemeter:
         ''' Do the main application loop.
         '''
         while True:
-            timestamp = datetime.datetime.now().strftime('%Y.%M.%d @ %H:%M:%S')
-            self.status_reporter.state = timestamp
-            self.status_reporter.push_threadsafe()
-            print('Logged ' + timestamp)
-            time.sleep(self.interval)
+            timestamp = datetime.datetime.now()
+            timestr = timestamp.strftime('%Y.%M.%d @ %H:%M:%S')
+            
+            self.status.state = timestr
+            self.status.push_threadsafe()
+            
+            elapsed = (datetime.datetime.now() - timestamp).total_seconds()
+            print('Logged {0} in {1:.3f} seconds.'.format(timestr, elapsed))
+            time.sleep(self.interval - elapsed)
 
 
 if __name__ == "__main__":
