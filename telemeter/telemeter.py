@@ -1,3 +1,4 @@
+import argparse
 import time
 import datetime
 import hypergolix as hgx
@@ -37,6 +38,7 @@ class Telemeter:
     def app_init(self):
         ''' Set up the application.
         '''
+        print('My fingerprint is: ' + self.hgxlink.whoami.as_str())
         self.status = self.hgxlink.new_threadsafe(
             cls = hgx.JsonObj,
             state = 'Hello world!',
@@ -82,13 +84,89 @@ class Telemeter:
             
         # Now we want to share the status reporter, if we have one, with the
         # origin
-        if self.status_reporter is not None:
-            self.status_reporter.share_threadsafe(origin)
+        if self.status is not None:
+            self.status.share_threadsafe(origin)
+
+
+class Telereader:
+    ''' Remote monitoring demo app receiver.
+    '''
+    
+    def __init__(self, telemeter_fingerprint):
+        self.hgxlink = hgx.HGXLink()
+        self.telemeter_fingerprint = telemeter_fingerprint
+        
+        # These are the actual Hypergolix business parts
+        self.status = None
+        self.pair = None
+        
+    def app_init(self):
+        ''' Set up the application.
+        '''
+        # Because we're using a native coroutine for this share handler, it
+        # needs no wrapping.
+        self.hgxlink.register_share_handler_threadsafe(STATUS_API,
+                                                       self.status_handler)
+        
+        # Wait until after registering the share handler to avoid a race
+        # condition with the Telemeter
+        self.pair = self.hgxlink.new_threadsafe(
+            cls = hgx.JsonObj,
+            state = 'Hello world!',
+            api_id = PAIR_API
+        )
+        self.pair.share_threadsafe(self.telemeter_fingerprint)
+        
+    async def status_handler(self, ghid, origin, api_id):
+        ''' We sent the pairing, and the Telemeter shared its status obj
+        with us in return. Get it, store it locally, and register a
+        callback to run every time the object is updated.
+        '''
+        status = await self.hgxlink.get(
+            cls = hgx.JsonObj,
+            ghid = ghid
+        )
+        # This registers the update callback. It will be run in the hgxlink
+        # event loop, so if it were blocking/threaded, we would need to wrap
+        # it like this: self.hgxlink.wrap_threadsafe(self.update_handler)
+        status.callback = self.update_handler
+        # We're really only doing this to prevent garbage collection
+        self.status = status
+        
+    async def update_handler(self, obj):
+        ''' A very simple, **asynchronous** handler for status updates.
+        This will be called every time the Telemeter changes their
+        status.
+        '''
+        print(obj.state)
+        
+    def app_run(self):
+        ''' For now, just busy-wait.
+        '''
+        while True:
+            time.sleep(1)
 
 
 if __name__ == "__main__":
-    try:
+    argparser = argparse.ArgumentParser(
+        description = 'A simple remote telemetry app.'
+    )
+    argparser.add_argument(
+        '--telereader',
+        action = 'store',
+        default = None,
+        help = 'Pass a Telemeter fingerprint to run as a reader.'
+    )
+    args = argparser.parse_args()
+    
+    if args.telereader is not None:
+        telemeter_fingerprint = hgx.Ghid.from_str(args.telereader)
+        app = Telereader(telemeter_fingerprint)
+        
+    else:
         app = Telemeter(interval=5)
+        
+    try:
         app.app_init()
         app.app_run()
         
