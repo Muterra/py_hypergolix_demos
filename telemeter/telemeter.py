@@ -21,15 +21,24 @@ PAIR_API = hgx.utils.ApiID(
     b'\x14\x07\x19\x16\x13\x18\x0b\x18\x0e\x12\x15\n' +
     b'\n\x16\x0f\x08\x14'
 )
+INTERVAL_API = hgx.utils.ApiID(
+    b'\n\x10\x04\x00\x13\x11\x0b\x11\x06\x02\x19\x00' +
+    b'\x11\x12\x10\x10\n\x14\x19\x15\x11\x18\x0f\x0f' +
+    b'\x01\r\x0c\x15\x16\x04\x0f\x18\x19\x13\x14\x11' +
+    b'\x10\x01\x19\x19\x15\x0b\t\x0e\x15\r\x16\x15' +
+    b'\x0e\n\x19\x0b\x14\r\n\x04\x0c\x06\x03\x13\x01' +
+    b'\x01\x12\x05'
+)
 
 
 class Telemeter:
     ''' Remote monitoring demo app sender.
     '''
     
-    def __init__(self, interval):
+    def __init__(self, interval, minimum_interval=1):
         self.hgxlink = hgx.HGXLink()
-        self.interval = interval
+        self._interval = interval
+        self.minimum_interval = minimum_interval
         
         # These are the actual Hypergolix business parts
         self.status = None
@@ -49,6 +58,10 @@ class Telemeter:
         # must be wrapped before use
         pair_handler = self.hgxlink.wrap_threadsafe(self.pair_handler)
         self.hgxlink.register_share_handler_threadsafe(PAIR_API, pair_handler)
+        # And set up a handler to change our interval
+        interval_handler = self.hgxlink.wrap_threadsafe(self.interval_handler)
+        self.hgxlink.register_share_handler_threadsafe(INTERVAL_API,
+                                                       interval_handler)
         
     def app_run(self):
         ''' Do the main application loop.
@@ -62,7 +75,9 @@ class Telemeter:
             
             elapsed = (datetime.datetime.now() - timestamp).total_seconds()
             print('Logged {0} in {1:.3f} seconds.'.format(timestr, elapsed))
-            time.sleep(self.interval - elapsed)
+            # Make sure we clamp this to non-negative values, in case the
+            # update took longer than the current interval.
+            time.sleep(max(self.interval - elapsed, 0))
         
     def pair_handler(self, ghid, origin, api_id):
         ''' Pair handlers ignore the object itself, instead setting up
@@ -86,6 +101,37 @@ class Telemeter:
         # origin
         if self.status is not None:
             self.status.share_threadsafe(origin)
+            
+    def interval_handler(self, ghid, origin, api_id):
+        ''' Interval handlers change our recording interval.
+        '''
+        # Ignore requests that don't match our pairing.
+        # This will also catch un-paired requests.
+        if origin != self.paired_fingerprint:
+            return
+        
+        # If the address matches our pairing, use it to change our interval.
+        else:
+            # We don't need to create an update callback here, because any
+            # upstream modifications will automatically be passed to the
+            # object. This is true of all hypergolix objects, but by using a
+            # proxy, it mimics the behavior of the int itself.
+            interval_proxy = self.hgxlink.get_threadsafe(
+                cls = hgx.JsonProxy,
+                ghid = ghid
+            )
+            self._interval = interval_proxy
+            
+    @property
+    def interval(self):
+        ''' This provides some consumer-side protection against
+        malicious interval proxies.
+        '''
+        try:
+            return float(max(self._interval, self.minimum_interval))
+        
+        except (ValueError, TypeError):
+            return self.minimum_interval
 
 
 class Telereader:
@@ -99,6 +145,7 @@ class Telereader:
         # These are the actual Hypergolix business parts
         self.status = None
         self.pair = None
+        self.interval = None
         
     def app_init(self):
         ''' Set up the application.
@@ -116,6 +163,12 @@ class Telereader:
             api_id = PAIR_API
         )
         self.pair.share_threadsafe(self.telemeter_fingerprint)
+        
+    def app_run(self):
+        ''' For now, just busy-wait.
+        '''
+        while True:
+            time.sleep(1)
         
     async def status_handler(self, ghid, origin, api_id):
         ''' We sent the pairing, and the Telemeter shared its status obj
@@ -140,11 +193,25 @@ class Telereader:
         '''
         print(obj.state)
         
-    def app_run(self):
-        ''' For now, just busy-wait.
+    def set_interval(self, interval):
+        ''' Set the recording interval remotely.
         '''
-        while True:
-            time.sleep(1)
+        # This is some supply-side protection of the interval.
+        interval = float(interval)
+        
+        if self.interval is None:
+            self.interval = self.hgxlink.new_threadsafe(
+                cls = hgx.JsonProxy,
+                state = interval,
+                api_id = INTERVAL_API
+            )
+            self.interval.hgx_share_threadsafe(self.telemeter_fingerprint)
+        else:
+            # We can't directly reassign the proxy here, because it would just
+            # overwrite the self.interval name with the interval float from
+            # above. Instead, we need to assign to the state.
+            self.interval.hgx_state = interval
+            self.interval.hgx_push_threadsafe()
 
 
 if __name__ == "__main__":
@@ -157,18 +224,37 @@ if __name__ == "__main__":
         default = None,
         help = 'Pass a Telemeter fingerprint to run as a reader.'
     )
+    argparser.add_argument(
+        '--interval',
+        action = 'store',
+        default = None,
+        type = float,
+        help = 'Set the Telemeter recording interval from the Telereader. ' +
+               'Ignored by a Telemeter.'
+    )
     args = argparser.parse_args()
     
     if args.telereader is not None:
         telemeter_fingerprint = hgx.Ghid.from_str(args.telereader)
         app = Telereader(telemeter_fingerprint)
         
+        try:
+            app.app_init()
+            
+            if args.interval is not None:
+                app.set_interval(args.interval)
+            
+            app.app_run()
+            
+        finally:
+            app.hgxlink.stop_threadsafe()
+        
     else:
         app = Telemeter(interval=5)
-        
-    try:
-        app.app_init()
-        app.app_run()
-        
-    finally:
-        app.hgxlink.stop_threadsafe()
+            
+        try:
+            app.app_init()
+            app.app_run()
+            
+        finally:
+            app.hgxlink.stop_threadsafe()
