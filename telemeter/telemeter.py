@@ -113,7 +113,7 @@ class Telemeter:
         '''
         while self.running:
             timestamp = datetime.datetime.now()
-            timestr = timestamp.strftime('%Y.%M.%d @ %H:%M:%S\n==========\n')
+            timestr = timestamp.strftime('%Y.%m.%d @ %H:%M:%S\n==========\n')
             cpustr = format_cpu(psutil.cpu_percent(interval=.1, percpu=True))
             memstr = format_mem(psutil.virtual_memory())
             diskstr = format_disk(psutil.disk_usage('/'))
