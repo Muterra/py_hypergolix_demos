@@ -92,7 +92,7 @@ class Telemeter:
     def app_init(self):
         ''' Set up the application.
         '''
-        print('My fingerprint is: ' + self.hgxlink.whoami.as_str())
+        # print('My fingerprint is: ' + self.hgxlink.whoami.as_str())
         self.status = self.hgxlink.new_threadsafe(
             cls = hgx.JsonObj,
             state = 'Hello world!',
@@ -124,7 +124,7 @@ class Telemeter:
             self.status.push_threadsafe()
             
             elapsed = (datetime.datetime.now() - timestamp).total_seconds()
-            print('Logged in {:.3f} seconds:\n{}'.format(elapsed, status))
+            # print('Logged in {:.3f} seconds:\n{}'.format(elapsed, status))
             # Make sure we clamp this to non-negative values, in case the
             # update took longer than the current interval.
             time.sleep(max(self.interval - elapsed, 0))
@@ -229,6 +229,7 @@ class Telereader:
         with us in return. Get it, store it locally, and register a
         callback to run every time the object is updated.
         '''
+        print('Incoming status: ' + ghid.as_str())
         status = await self.hgxlink.get(
             cls = hgx.JsonObj,
             ghid = ghid
